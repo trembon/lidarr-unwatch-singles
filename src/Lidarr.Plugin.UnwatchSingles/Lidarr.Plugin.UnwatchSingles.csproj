@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>NzbDrone.Core.Plugins.UnwatchSingles</RootNamespace>
+    <AssemblyName>Lidarr.Plugin.UnwatchSingles</AssemblyName>
+    <AssemblyVersion Condition="'$(Version)' == ''">0.1.0.0</AssemblyVersion>
+    <FileVersion Condition="'$(Version)' == ''">0.1.0.0</FileVersion>
+    <AssemblyInformationalVersion Condition="'$(Version)' == ''">0.1.0-local</AssemblyInformationalVersion>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>RepositoryOwner</_Parameter1>
+      <_Parameter2>$(RepositoryOwner)</_Parameter2>
+    </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>RepositoryName</_Parameter1>
+      <_Parameter2>$(RepositoryName)</_Parameter2>
+    </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>MinimumLidarrVersion</_Parameter1>
+      <_Parameter2>3.1.6.5078</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Lidarr.Common">
+      <HintPath>$(LidarrReferencePath)/Lidarr.Common.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Lidarr.Core">
+      <HintPath>$(LidarrReferencePath)/Lidarr.Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="FluentValidation">
+      <HintPath>$(LidarrReferencePath)/FluentValidation.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="NLog">
+      <HintPath>$(LidarrReferencePath)/NLog.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="ValidateLidarrReferencePath" BeforeTargets="ResolveReferences">
+    <Error Condition="'$(LidarrReferencePath)' == ''" Text="Set LidarrReferencePath to the verified Lidarr 3.1.6.5078 reference directory. Run scripts/Get-LidarrReferences.ps1 first." />
+    <Error Condition="!Exists('$(LidarrReferencePath)/Lidarr.Core.dll') or !Exists('$(LidarrReferencePath)/Lidarr.Common.dll')" Text="LidarrReferencePath does not contain the pinned Lidarr.Core.dll and Lidarr.Common.dll assemblies." />
+  </Target>
+</Project>

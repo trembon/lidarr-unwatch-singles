@@ -1,0 +1,13 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    <RepositoryOwner Condition="'$(RepositoryOwner)' == ''">trembon</RepositoryOwner>
+    <RepositoryName Condition="'$(RepositoryName)' == ''">lidarr-unwatch-singles</RepositoryName>
+    <AssemblyVersion Condition="'$(Version)' == ''">0.1.0.0</AssemblyVersion>
+  </PropertyGroup>
+</Project>

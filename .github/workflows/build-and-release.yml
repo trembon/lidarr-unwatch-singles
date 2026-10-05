@@ -1,0 +1,139 @@
+name: Build and release plugin
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Build, test, package, and load in Lidarr
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.425
+
+      - name: Select plugin version
+        id: plugin-version
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            if ($env:GITHUB_REF_NAME -notmatch '^v(?<version>(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*))$') {
+              throw "Release tags must start with v and contain a semantic version: $env:GITHUB_REF_NAME"
+            }
+            $version = $Matches.version
+          }
+          else {
+            $version = "0.1.0-ci.$env:GITHUB_RUN_NUMBER"
+          }
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Download and verify Lidarr references
+        id: lidarr
+        shell: pwsh
+        run: |
+          $referencePath = & ./scripts/Get-LidarrReferences.ps1 -RuntimeIdentifier linux-x64
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "path=$referencePath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Build and test
+        shell: pwsh
+        env:
+          LIDARR_REFERENCE_PATH: ${{ steps.lidarr.outputs.path }}
+          PLUGIN_VERSION: ${{ steps.plugin-version.outputs.version }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+          REPOSITORY_NAME: ${{ github.event.repository.name }}
+        run: |
+          dotnet restore ./Lidarr.UnwatchSingles.sln --configfile ./NuGet.Config
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet test ./Lidarr.UnwatchSingles.sln -c Release --no-restore `
+            "-p:LidarrReferencePath=$env:LIDARR_REFERENCE_PATH" `
+            "-p:Version=$env:PLUGIN_VERSION" `
+            "-p:RepositoryOwner=$env:REPOSITORY_OWNER" `
+            "-p:RepositoryName=$env:REPOSITORY_NAME"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Package and check the plugin archive
+        shell: pwsh
+        env:
+          PLUGIN_VERSION: ${{ steps.plugin-version.outputs.version }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+          REPOSITORY_NAME: ${{ github.event.repository.name }}
+          LIDARR_REFERENCE_PATH: ${{ steps.lidarr.outputs.path }}
+        run: |
+          & ./scripts/Package-Plugin.ps1 `
+            -Version $env:PLUGIN_VERSION `
+            -RepositoryOwner $env:REPOSITORY_OWNER `
+            -RepositoryName $env:REPOSITORY_NAME `
+            -LidarrReferencePath $env:LIDARR_REFERENCE_PATH
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Load the package in an isolated Lidarr instance
+        shell: pwsh
+        env:
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+          REPOSITORY_NAME: ${{ github.event.repository.name }}
+          PLUGIN_VERSION: ${{ steps.plugin-version.outputs.version }}
+        run: |
+          & ./scripts/Test-LidarrLoad.ps1 `
+            -PackagePath ./artifacts/release/Lidarr.Plugin.UnwatchSingles.net8.0.zip `
+            -LidarrDistributionPath ./artifacts/lidarr/3.1.6.5078/linux-x64/distribution `
+            -RepositoryOwner $env:REPOSITORY_OWNER `
+            -RepositoryName $env:REPOSITORY_NAME `
+            -ExpectedPluginVersion $env:PLUGIN_VERSION `
+            -RuntimeIdentifier linux-x64
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Save installable release files
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lidarr.Plugin.UnwatchSingles.net8.0
+          path: |
+            artifacts/release/Lidarr.Plugin.UnwatchSingles.net8.0.zip
+            artifacts/release/Lidarr.Plugin.UnwatchSingles.net8.0.zip.sha256
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish tagged plugin release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download the validated package
+        uses: actions/download-artifact@v4
+        with:
+          name: Lidarr.Plugin.UnwatchSingles.net8.0
+          path: artifacts/release
+
+      - name: Publish the Lidarr plugin release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Unwatch Singles ${{ github.ref_name }}
+          target_commitish: main
+          make_latest: true
+          fail_on_unmatched_files: true
+          body: |
+            Lidarr plugin release for **${{ github.ref_name }}**.
+
+            Minimum Lidarr Version: 3.1.6.5078
+
+            Install from **System → Plugins** using this repository URL. After Lidarr restarts, enable the provider in **Settings → Metadata**.
+          files: |
+            artifacts/release/Lidarr.Plugin.UnwatchSingles.net8.0.zip
+            artifacts/release/Lidarr.Plugin.UnwatchSingles.net8.0.zip.sha256
