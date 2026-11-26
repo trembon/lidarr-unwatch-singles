@@ -1,5 +1,4 @@
 param(
-    [Parameter(Mandatory = $true)]
     [string]$Version,
 
     [Parameter(Mandatory = $true)]
@@ -17,7 +16,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 
-if ($Version -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$') {
+if ($Version -and $Version -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$') {
     throw "Version must be a semantic version without its leading v; received '$Version'."
 }
 
@@ -28,9 +27,9 @@ if (!(Test-Path -LiteralPath (Join-Path $absoluteReferencePath 'Lidarr.Core.dll'
 
 $projectPath = Join-Path $repositoryRoot 'src/Lidarr.Plugin.UnwatchSingles/Lidarr.Plugin.UnwatchSingles.csproj'
 $nuGetConfigPath = Join-Path $repositoryRoot 'NuGet.Config'
-$pluginOutput = Join-Path $repositoryRoot 'src/Lidarr.Plugin.UnwatchSingles/bin/Release/net8.0'
+$pluginOutput = Join-Path $repositoryRoot 'src/Lidarr.Plugin.UnwatchSingles/bin/Release/net10.0'
 $absoluteOutputDirectory = [System.IO.Path]::GetFullPath($OutputDirectory, $repositoryRoot)
-$packageName = 'Lidarr.Plugin.UnwatchSingles.net8.0.zip'
+$packageName = 'Lidarr.Plugin.UnwatchSingles.net10.0.zip'
 $packagePath = Join-Path $absoluteOutputDirectory $packageName
 $checksumPath = "$packagePath.sha256"
 
@@ -39,8 +38,12 @@ if ($LASTEXITCODE -ne 0) {
     throw "Restoring the plugin project failed with exit code $LASTEXITCODE."
 }
 
-dotnet build $projectPath -c Release --no-restore `
-    "-p:Version=$Version" `
+$versionArguments = @()
+if ($Version) {
+    $versionArguments += "-p:Version=$Version"
+}
+
+dotnet build $projectPath -c Release --no-restore @versionArguments `
     "-p:RepositoryOwner=$RepositoryOwner" `
     "-p:RepositoryName=$RepositoryName" `
     "-p:LidarrReferencePath=$absoluteReferencePath"

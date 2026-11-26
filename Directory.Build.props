@@ -1,6 +1,7 @@
 <Project>
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
+    <VersionPrefix>0.2.0</VersionPrefix>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
@@ -8,6 +9,5 @@
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
     <RepositoryOwner Condition="'$(RepositoryOwner)' == ''">trembon</RepositoryOwner>
     <RepositoryName Condition="'$(RepositoryName)' == ''">lidarr-unwatch-singles</RepositoryName>
-    <AssemblyVersion Condition="'$(Version)' == ''">0.1.0.0</AssemblyVersion>
   </PropertyGroup>
 </Project>

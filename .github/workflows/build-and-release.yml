@@ -20,10 +20,10 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
-      - name: Set up .NET 8
+      - name: Set up .NET 10
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.425
+          global-json-file: global.json
 
       - name: Select plugin version
         id: plugin-version
@@ -36,16 +36,15 @@ jobs:
             $version = $Matches.version
           }
           else {
-            $version = "0.1.0-ci.$env:GITHUB_RUN_NUMBER"
+            $version = "0.2.0-ci.$env:GITHUB_RUN_NUMBER"
           }
           "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
-      - name: Download and verify Lidarr references
+      - name: Extract references from the pinned Lidarr image
         id: lidarr
         shell: pwsh
         run: |
-          $referencePath = & ./scripts/Get-LidarrReferences.ps1 -RuntimeIdentifier linux-x64
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $referencePath = & ./scripts/Get-LidarrReferences.ps1
           "path=$referencePath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
       - name: Build and test
@@ -88,21 +87,19 @@ jobs:
           PLUGIN_VERSION: ${{ steps.plugin-version.outputs.version }}
         run: |
           & ./scripts/Test-LidarrLoad.ps1 `
-            -PackagePath ./artifacts/release/Lidarr.Plugin.UnwatchSingles.net8.0.zip `
-            -LidarrDistributionPath ./artifacts/lidarr/3.1.6.5078/linux-x64/distribution `
+            -PackagePath ./artifacts/release/Lidarr.Plugin.UnwatchSingles.net10.0.zip `
             -RepositoryOwner $env:REPOSITORY_OWNER `
             -RepositoryName $env:REPOSITORY_NAME `
-            -ExpectedPluginVersion $env:PLUGIN_VERSION `
-            -RuntimeIdentifier linux-x64
+            -ExpectedPluginVersion $env:PLUGIN_VERSION
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Save installable release files
         uses: actions/upload-artifact@v4
         with:
-          name: Lidarr.Plugin.UnwatchSingles.net8.0
+          name: Lidarr.Plugin.UnwatchSingles.net10.0
           path: |
-            artifacts/release/Lidarr.Plugin.UnwatchSingles.net8.0.zip
-            artifacts/release/Lidarr.Plugin.UnwatchSingles.net8.0.zip.sha256
+            artifacts/release/Lidarr.Plugin.UnwatchSingles.net10.0.zip
+            artifacts/release/Lidarr.Plugin.UnwatchSingles.net10.0.zip.sha256
           if-no-files-found: error
           retention-days: 14
 
@@ -118,7 +115,7 @@ jobs:
       - name: Download the validated package
         uses: actions/download-artifact@v4
         with:
-          name: Lidarr.Plugin.UnwatchSingles.net8.0
+          name: Lidarr.Plugin.UnwatchSingles.net10.0
           path: artifacts/release
 
       - name: Publish the Lidarr plugin release
@@ -131,9 +128,9 @@ jobs:
           body: |
             Lidarr plugin release for **${{ github.ref_name }}**.
 
-            Minimum Lidarr Version: 3.1.6.5078
+            Minimum Lidarr Version: 4.0.0.5236
 
             Install from **System → Plugins** using this repository URL. After Lidarr restarts, enable the provider in **Settings → Metadata**.
           files: |
-            artifacts/release/Lidarr.Plugin.UnwatchSingles.net8.0.zip
-            artifacts/release/Lidarr.Plugin.UnwatchSingles.net8.0.zip.sha256
+            artifacts/release/Lidarr.Plugin.UnwatchSingles.net10.0.zip
+            artifacts/release/Lidarr.Plugin.UnwatchSingles.net10.0.zip.sha256

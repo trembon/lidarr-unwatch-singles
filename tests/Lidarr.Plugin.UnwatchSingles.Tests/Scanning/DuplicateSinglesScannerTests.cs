@@ -141,9 +141,9 @@ public sealed class DuplicateSinglesScannerTests
         var secondScan = Task.Run(() => scanner.Scan(forceDryRun: true));
         releaseInitialRead.Set();
 
-        await Task.WhenAll(firstScan, secondScan);
+        var results = await Task.WhenAll(firstScan, secondScan);
 
-        Assert.Equal(2, firstScan.Result.DuplicatesFound + secondScan.Result.DuplicatesFound);
+        Assert.Equal(2, results.Sum(result => result.DuplicatesFound));
         Assert.Empty(monitoring.ChangedAlbumIds);
     }
 

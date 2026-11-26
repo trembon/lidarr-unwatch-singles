@@ -1,12 +1,12 @@
 # Lidarr integration notes
 
-This document records the Lidarr interfaces verified for the 3.1.6.5078 baseline before monitoring behavior is implemented. The project targets the nightly/develop channel and .NET 8. Stable Lidarr builds that do not load plugins are not supported.
+Unwatch Singles 0.2 targets .NET 10 and uses the plugin interfaces supplied by Lidarr `4.0.0.5236`. The integration check runs in LinuxServer's pinned `4.0.0.5236-ls228` nightly image.
 
 ## Loading and dependency injection
 
 Lidarr discovers plugin assemblies whose names start with `Lidarr.Plugin.`. The assembly must export a concrete type deriving from `NzbDrone.Core.Plugins.Plugin`; a `Plugin` supplies a display name, repository owner, and GitHub URL. Lidarr loads the plugin in a collectible `AssemblyLoadContext`, resolves shared Lidarr assemblies from the host, and registers exported plugin types in its DryIoc container. Host assemblies must therefore be referenced at compile time and excluded from the release archive.
 
-The installer queries GitHub releases for the plugin repository. It skips draft releases, requires an asset name containing the host framework (for this baseline, `net8.0.zip`), and extracts that archive beneath Lidarr's plugin directory. The archive contains plugin files at its root. A release body containing `Minimum Lidarr Version: 3.1.6.5078` communicates the supported minimum to the installer.
+The installer queries GitHub releases for the plugin repository. It skips draft releases, requires an asset name containing the host framework suffix `net10.0.zip`, and extracts that archive beneath Lidarr's plugin directory. The archive contains plugin files at its root. A release body containing `Minimum Lidarr Version: 4.0.0.5236` communicates the supported minimum to the installer.
 
 ## Library data and state changes
 
@@ -26,4 +26,4 @@ A class derived from `MetadataBase<TSettings>` exposes one plugin entry under Se
 
 ## Build and release constraints
 
-The host, core and common assemblies come from the official `v3.1.6.5078` Linux core distribution. GitHub's official release API supplies that asset's SHA-256 digest. CI verifies the downloaded archive before extracting its assemblies. Build against .NET 8 and package only `Lidarr.Plugin.UnwatchSingles.dll` and its PDB into `Lidarr.Plugin.UnwatchSingles.net8.0.zip`.
+The build helper extracts the reference assemblies from `/app/lidarr/bin` in the digest-pinned image. CI uses that same image for the smoke test with a fresh `/config` directory, and verifies the Lidarr version, package, and .NET runtime through the system status endpoint. The .NET 10 package contains `Lidarr.Plugin.UnwatchSingles.dll` and its PDB at the root of `Lidarr.Plugin.UnwatchSingles.net10.0.zip`.

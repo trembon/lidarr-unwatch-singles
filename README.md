@@ -2,15 +2,15 @@
 
 Unwatch Singles keeps redundant single releases from being monitored when the same recordings already appear on one of the artist's monitored albums or EPs. It only changes the monitoring state of a Single.
 
-The plugin targets plugin-capable Lidarr .NET 8 builds. The build and load checks use Lidarr `3.1.6.5078`. This is a develop/nightly build; use a supported Lidarr build before installing plugins.
+Unwatch Singles 0.2 targets .NET 10 and requires Lidarr `4.0.0.5236` or later with plugin support. The build and load checks use LinuxServer's nightly image `4.0.0.5236-ls228` with .NET `10.0.15`. For Lidarr on .NET 8, use the [v0.0.1 release](https://github.com/trembon/lidarr-unwatch-singles/releases/tag/v0.0.1).
 
 ## Install
 
 1. Open **System → Plugins** in Lidarr.
 2. Enter `https://github.com/trembon/lidarr-unwatch-singles`.
-3. Install the plugin and restart Lidarr.
-4. Open **Settings → Metadata**, edit **Unwatch Singles**, and enable it.
-5. Leave **Dry run** enabled while reviewing the first scan. Start **Scan Duplicate Singles** from **System → Tasks**. Read the scan totals and the Lidarr log; when the results look right, turn Dry run off.
+3. Install the plugin and restart Lidarr. Lidarr selects a release that matches its .NET version.
+4. Open **Settings → Metadata** and edit **Unwatch Singles**. Turn on **Dry run** when enabling the provider for the first time.
+5. Start **Scan Duplicate Singles** from **System → Tasks**. Review the scan totals and the Lidarr log before turning Dry run off.
 
 After enabling the provider, artist refreshes and imported albums trigger a scan for that artist. The daily full-library scan catches anything those events missed. Both automatic modes have independent settings.
 
@@ -34,7 +34,7 @@ The Settings → Metadata entry starts disabled. Once enabled, defaults are Dry 
 
 ## Build and test locally
 
-Install the .NET 8 SDK. From PowerShell at the repository root, obtain the official Lidarr references and run the tests:
+Install the .NET SDK pinned in `global.json`, PowerShell 7.4 or later, and Docker with Linux containers enabled. From PowerShell at the repository root, extract the Lidarr references and run the tests:
 
 ```powershell
 $referencePath = .\scripts\Get-LidarrReferences.ps1
@@ -42,41 +42,49 @@ dotnet restore .\Lidarr.UnwatchSingles.sln --configfile .\NuGet.Config
 dotnet test .\Lidarr.UnwatchSingles.sln -c Release --no-restore "-p:LidarrReferencePath=$referencePath"
 ```
 
-The helper downloads Lidarr `3.1.6.5078` from its official GitHub release, verifies the asset against GitHub's SHA-256 digest, extracts the host assemblies under the ignored `artifacts/` directory, and prints the reference path. The plugin project references Lidarr assemblies without copying them into the plugin build output.
+The helper uses the digest-pinned LinuxServer image and copies the build references from `/app/lidarr/bin` into the ignored `artifacts/` directory. The plugin references those assemblies at build time and uses Lidarr's copies at runtime.
 
 Create an installable archive locally with:
 
 ```powershell
 .\scripts\Package-Plugin.ps1 `
-  -Version 1.0.0 `
   -RepositoryOwner trembon `
   -RepositoryName lidarr-unwatch-singles `
   -LidarrReferencePath $referencePath
 ```
 
-The package script builds `Lidarr.Plugin.UnwatchSingles.net8.0.zip` and its SHA-256 sidecar beneath `artifacts/release/`. The archive contains only the plugin DLL and symbols at its root.
+The package script defaults to version `0.2.0` and builds `Lidarr.Plugin.UnwatchSingles.net10.0.zip` and its SHA-256 sidecar beneath `artifacts/release/`. The archive contains the plugin DLL and symbols at its root.
+
+Test the package in a container with a disposable configuration directory:
+
+```powershell
+.\scripts\Test-LidarrLoad.ps1 `
+  -PackagePath .\artifacts\release\Lidarr.Plugin.UnwatchSingles.net10.0.zip `
+  -RepositoryOwner trembon `
+  -RepositoryName lidarr-unwatch-singles
+```
 
 ## GitHub builds and releases
 
-GitHub Actions runs tests, verifies the archive contents, and installs the package into a separate Lidarr data directory to check plugin loading, metadata settings discovery, and scheduled-task registration. These checks run for pull requests, pushes to `main`, and version tags.
+GitHub Actions runs tests, verifies the archive contents and checksum, and loads the package in the pinned LinuxServer container. The smoke test verifies the metadata provider, manual dry run, and daily task persistence across a restart. These checks run for pull requests, pushes to `main`, and version tags.
 
 To publish a release, merge the tested change into `main`, then create and push a semantic version tag:
 
 ```powershell
-git tag v1.0.0
-git push origin v1.0.0
+git tag v0.2.0
+git push origin v0.2.0
 ```
 
-Only tags of the form `vMAJOR.MINOR.PATCH` publish a release. The release contains the installable .NET 8 ZIP and its SHA-256 sidecar and targets `main` for Lidarr's plugin installer.
+Only tags of the form `vMAJOR.MINOR.PATCH` publish a release. The release contains the installable .NET 10 ZIP and its SHA-256 sidecar and targets `main` for Lidarr's plugin installer.
 
 ## Troubleshooting
 
-- **Lidarr does not show Plugins:** use a .NET 8, plugin-capable develop/nightly build at or above `3.1.6.5078`, then restart Lidarr after installing.
-- **The plugin cannot load:** check that the archive came from the matching `.net8.0.zip` release, check Lidarr's log for the first plugin load error, and verify the archive was not extracted as an extra nested ZIP directory.
+- **Lidarr does not show Plugins**. Use a plugin-capable .NET 10 build at or above `4.0.0.5236` for version 0.2, then restart Lidarr after installing.
+- **The plugin cannot load**. Check that the archive came from the matching `.net10.0.zip` release and look for the first plugin load error in the Lidarr log.
 - **No provider appears:** open **Settings → Metadata** after the plugin loads and enable the Unwatch Singles provider.
 - **A title match is only marked ambiguous:** the duration is missing or outside tolerance. The plugin intentionally leaves that Single monitored.
 - **A Single is skipped:** confirm that its parent album and one edition are monitored, its track list is complete, and all tracks match one monitored edition of the same artist's Album or EP.
 
 ## Architecture notes
 
-The pinned Lidarr service and event findings used to design the integration are documented in [docs/lidarr-architecture.md](docs/lidarr-architecture.md). The plugin is an original implementation; the [UniqueSingles project](https://github.com/jtstothard/lidarr-plugin-uniquesingles) informed the integration points and conservative matching tiers.
+See [Lidarr integration notes](docs/lidarr-architecture.md) for the host interfaces and packaging details. The original implementation drew on the integration points and matching tiers of the [UniqueSingles project](https://github.com/jtstothard/lidarr-plugin-uniquesingles).
